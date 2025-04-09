@@ -1,26 +1,29 @@
-'use client';
+'use client'; // This tells Next.js that this is a client-side component.
 
 import React, { useState, useEffect } from 'react';
-import styles from './Book.module.css';
+import styles from './Book.module.css'; // Importing the CSS module for scoped styles
 
+// Interface defining what a single page consists of
 interface Page {
-    content: React.ReactNode;
-    pageNumber: number;
+    content: React.ReactNode; // Content of the page (JSX)
+    pageNumber: number;       // The page number
 }
 
+// Interface defining what a bookmark looks like
 interface Bookmark {
-    label: string;
-    pageNumber: number;
-    color: string;
+    label: string;       // Label shown on the bookmark
+    pageNumber: number;  // The page number this bookmark links to
+    color: string;       // Color for styling the bookmark
 }
 
+// Props accepted by the Book component
 interface BookProps {
-    title: string;
-    author: string;
-    pages: Page[];
-    width?: number;
-    height?: number;
-    bookmarks?: Bookmark[];
+    title: string;        // Title of the book
+    author: string;       // Author's name
+    pages: Page[];        // Array of page objects
+    width?: number;       // Optional width of the book (default: 900)
+    height?: number;      // Optional height of the book (default: 600)
+    bookmarks?: Bookmark[]; // Optional list of bookmarks
 }
 
 export const Book: React.FC<BookProps> = ({
@@ -31,37 +34,43 @@ export const Book: React.FC<BookProps> = ({
     height = 600,
     bookmarks = []
 }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [isClosing, setIsClosing] = useState(false);
-    const [currentSpread, setCurrentSpread] = useState(0);
-    const [isFlipping, setIsFlipping] = useState(false);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const [nextSpread, setNextSpread] = useState<number | null>(null);
-    const [flipDirection, setFlipDirection] = useState<'left' | 'right' | null>(null);
+    // Component state
+    const [isOpen, setIsOpen] = useState(false);           // Book is open or closed
+    const [isClosing, setIsClosing] = useState(false);     // Is the book currently closing
+    const [currentSpread, setCurrentSpread] = useState(0); // Which spread (pair of pages) is being shown
+    const [isFlipping, setIsFlipping] = useState(false);   // Is a page flipping animation occurring
+    const [isAnimating, setIsAnimating] = useState(false); // General animation state (e.g. opening book)
+    const [nextSpread, setNextSpread] = useState<number | null>(null); // Spread to show after flipping
+    const [flipDirection, setFlipDirection] = useState<'left' | 'right' | null>(null); // Flip direction
+    const [hideContent, setHideContent] = useState(false); // Whether to hide page content during animation
 
-    const totalSpreads = Math.ceil(pages.length / 2);
-    const leftPageIndex = currentSpread * 2;
-    const rightPageIndex = leftPageIndex + 1;
+    const totalSpreads = Math.ceil(pages.length / 2); // Total number of spreads (2 pages per spread)
+    const leftPageIndex = currentSpread * 2;          // Left page index in the current spread
+    const rightPageIndex = leftPageIndex + 1;         // Right page index
 
+    // Open the book with animation
     const handleOpen = () => {
         setIsAnimating(true);
         setIsOpen(true);
-        setTimeout(() => setIsAnimating(false), 1000);
+        setTimeout(() => setIsAnimating(false), 1000); // Simulate animation delay
     };
 
+    // Close the book with animation and reset to first spread
     const handleClose = () => {
         setIsClosing(true);
         setTimeout(() => {
             setIsOpen(false);
             setIsClosing(false);
             setCurrentSpread(0);
-        }, 1200);
+        }, 1200); // Match with CSS animation duration
     };
 
+    // Converts page number to spread index
     const calculateSpreadFromPage = (pageNumber: number) => {
         return Math.floor((pageNumber - 1) / 2);
     };
 
+    // Navigate to a specific page via bookmark
     const handleBookmarkClick = async (pageNumber: number) => {
         if (isFlipping) return;
 
@@ -69,43 +78,25 @@ export const Book: React.FC<BookProps> = ({
         if (targetSpread === currentSpread) return;
 
         setIsFlipping(true);
-        const isForward = targetSpread > currentSpread;
+        setHideContent(true);
 
-        // Animate through each page flip to reach the target
-        const animateToSpread = async () => {
-            let currentSpreadValue = currentSpread;
+        // Determine flip direction
+        const flipDirection = targetSpread > currentSpread ? 'left' : 'right';
+        setFlipDirection(flipDirection);
+        setNextSpread(targetSpread);
 
-            const animate = () => {
-                if (isForward && currentSpreadValue < targetSpread) {
-                    setFlipDirection('left');
-                    currentSpreadValue++;
-                    return true;
-                } else if (!isForward && currentSpreadValue > targetSpread) {
-                    setFlipDirection('right');
-                    currentSpreadValue--;
-                    return true;
-                }
-                return false;
-            };
+        // Wait for animation to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-            const performAnimation = async () => {
-                if (animate()) {
-                    setNextSpread(currentSpreadValue);
-                    await new Promise(resolve => setTimeout(resolve, 1200)); // Match animation duration
-                    setCurrentSpread(currentSpreadValue);
-                    await performAnimation();
-                }
-            };
-
-            await performAnimation();
-        };
-
-        await animateToSpread();
+        // Show new spread
+        setCurrentSpread(targetSpread);
+        setHideContent(false);
         setIsFlipping(false);
         setFlipDirection(null);
         setNextSpread(null);
     };
 
+    // Render a single page's content, or fallback if blank
     const renderPage = (pageIndex: number, isNextSpread: boolean = false) => {
         return pages[pageIndex]?.content || (
             <div className={styles.emptyPage}>
@@ -114,6 +105,7 @@ export const Book: React.FC<BookProps> = ({
         );
     };
 
+    // Render bookmarks in the sidebar
     const renderBookmarks = () => (
         <div className={styles.bookmarks}>
             {bookmarks.map((bookmark, index) => (
@@ -131,6 +123,7 @@ export const Book: React.FC<BookProps> = ({
         </div>
     );
 
+    // Keyboard controls for navigation
     useEffect(() => {
         const handleKeyPress = (event: KeyboardEvent) => {
             if (!isOpen || isFlipping || isClosing) return;
@@ -156,10 +149,13 @@ export const Book: React.FC<BookProps> = ({
         return () => window.removeEventListener('keydown', handleKeyPress);
     }, [isOpen, isFlipping, isClosing, currentSpread, totalSpreads]);
 
+    // Flip page left or right
     const turnPage = (direction: 'next' | 'prev') => {
         if (isFlipping) return;
 
         setIsFlipping(true);
+        setHideContent(true);
+
         const newSpread = direction === 'next' ? currentSpread + 1 : currentSpread - 1;
 
         if ((direction === 'next' && currentSpread < totalSpreads - 1) ||
@@ -167,17 +163,21 @@ export const Book: React.FC<BookProps> = ({
             setNextSpread(newSpread);
             setFlipDirection(direction === 'next' ? 'left' : 'right');
 
+            // Delay to allow animation to complete
             setTimeout(() => {
                 setCurrentSpread(newSpread);
                 setNextSpread(null);
+                setHideContent(false);
                 setIsFlipping(false);
                 setFlipDirection(null);
             }, 1200);
         } else {
+            setHideContent(false);
             setIsFlipping(false);
         }
     };
 
+    // Handles click events on UI buttons
     const handleKeyClick = (action: 'prev' | 'next' | 'close') => {
         switch (action) {
             case 'prev':
@@ -196,6 +196,7 @@ export const Book: React.FC<BookProps> = ({
         }
     };
 
+    // Renders keyboard shortcut hints
     const renderKeyControls = () => (
         <div className={styles.keyControls}>
             <div
@@ -222,6 +223,7 @@ export const Book: React.FC<BookProps> = ({
         </div>
     );
 
+    // UI when book is closed
     if (!isOpen) {
         return (
             <div className={styles.bookContainer}>
@@ -243,6 +245,7 @@ export const Book: React.FC<BookProps> = ({
         );
     }
 
+    // UI when book is open
     return (
         <div className={styles.bookContainer}>
             <div
@@ -251,32 +254,27 @@ export const Book: React.FC<BookProps> = ({
             >
                 {renderBookmarks()}
 
-                {/* Current spread */}
+                {/* Left page of current spread */}
                 <div
-                    className={`${styles.page} ${styles.leftPage} ${isFlipping && flipDirection === 'right' ? styles.flipLeftToRight : ''
-                        }`}
+                    className={`${styles.page} ${styles.leftPage} ${isFlipping && flipDirection === 'right' ? styles.flipLeftToRight : ''}`}
                 >
-                    {pages[leftPageIndex]?.content || (
-                        <div className={styles.emptyPage}>
-                            <p>This page is intentionally left blank</p>
-                        </div>
-                    )}
-                    <div className={styles.pageNumber}>{leftPageIndex + 1}</div>
+                    <div className={`${styles.pageContent} ${hideContent ? styles.hideContent : ''}`}>
+                        {renderPage(leftPageIndex)}
+                        <div className={styles.pageNumber}>{leftPageIndex + 1}</div>
+                    </div>
                 </div>
 
+                {/* Right page of current spread */}
                 <div
-                    className={`${styles.page} ${styles.rightPage} ${isFlipping && flipDirection === 'left' ? styles.flipRightToLeft : ''
-                        }`}
+                    className={`${styles.page} ${styles.rightPage} ${isFlipping && flipDirection === 'left' ? styles.flipRightToLeft : ''}`}
                 >
-                    {pages[rightPageIndex]?.content || (
-                        <div className={styles.emptyPage}>
-                            <p>This page is intentionally left blank</p>
-                        </div>
-                    )}
-                    <div className={styles.pageNumber}>{rightPageIndex + 1}</div>
+                    <div className={`${styles.pageContent} ${hideContent ? styles.hideContent : ''}`}>
+                        {renderPage(rightPageIndex)}
+                        <div className={styles.pageNumber}>{rightPageIndex + 1}</div>
+                    </div>
                 </div>
 
-                {/* Next spread pages */}
+                {/* Background pages shown during flipping */}
                 {isFlipping && nextSpread !== null && (
                     <>
                         <div
@@ -287,12 +285,10 @@ export const Book: React.FC<BookProps> = ({
                                 zIndex: flipDirection === 'right' ? 99 : 97
                             }}
                         >
-                            {pages[nextSpread * 2]?.content || (
-                                <div className={styles.emptyPage}>
-                                    <p>This page is intentionally left blank</p>
-                                </div>
-                            )}
-                            <div className={styles.pageNumber}>{nextSpread * 2 + 1}</div>
+                            <div className={`${styles.pageContent} ${styles.hideContent}`}>
+                                {renderPage(nextSpread * 2)}
+                                <div className={styles.pageNumber}>{nextSpread * 2 + 1}</div>
+                            </div>
                         </div>
 
                         <div
@@ -303,17 +299,15 @@ export const Book: React.FC<BookProps> = ({
                                 zIndex: flipDirection === 'left' ? 98 : 96
                             }}
                         >
-                            {pages[nextSpread * 2 + 1]?.content || (
-                                <div className={styles.emptyPage}>
-                                    <p>This page is intentionally left blank</p>
-                                </div>
-                            )}
-                            <div className={styles.pageNumber}>{nextSpread * 2 + 2}</div>
+                            <div className={`${styles.pageContent} ${styles.hideContent}`}>
+                                {renderPage(nextSpread * 2 + 1)}
+                                <div className={styles.pageNumber}>{nextSpread * 2 + 2}</div>
+                            </div>
                         </div>
                     </>
                 )}
 
-                {/* Navigation buttons */}
+                {/* Left and right navigation buttons */}
                 {isOpen && (
                     <>
                         <button
@@ -334,6 +328,7 @@ export const Book: React.FC<BookProps> = ({
                 )}
             </div>
 
+            {/* Controls at the bottom: close + key hints */}
             {isOpen && (
                 <>
                     <button
@@ -348,3 +343,5 @@ export const Book: React.FC<BookProps> = ({
         </div>
     );
 };
+
+export default Book;
